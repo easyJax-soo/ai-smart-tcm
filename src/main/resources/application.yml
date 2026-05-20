@@ -3,6 +3,16 @@ spring:
     name: ai-smart-cloud
   profiles:
     active: local
+  ai:
+    minimax:
+      api-key: ${MINIMAX_API_KEY:}
+      chat:
+        options:
+          model: MiniMax-M2.7-highspeed
+          max-tokens: 4096
+          temperature: 0.7
+      embedding:
+        model: Embed-Embedding-240615
 server:
   port: 38022
   servlet:

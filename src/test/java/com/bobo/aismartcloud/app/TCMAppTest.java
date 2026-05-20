@@ -3,12 +3,16 @@ package com.bobo.aismartcloud.app;
 import jakarta.annotation.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.minimax.MiniMaxChatModel;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.UUID;
 
 @SpringBootTest
 class TCMAppTest {
+
+    @Resource
+    private MiniMaxChatModel miniMaxChatModel;
 
     @Resource
     private TCMApp tcmApp;

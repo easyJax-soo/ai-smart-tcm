@@ -2,16 +2,15 @@ package com.bobo.aismartcloud.app;
 
 
 import com.bobo.aismartcloud.advisor.MyLoggerAdvisor;
-import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.SimpleLoggerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.minimax.MiniMaxChatModel;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -79,15 +78,15 @@ public class TCMApp {
     /**
      * 初始化 ChatClient
      *
-     * @param dashscopeChatModel
+     * @param chatModel MiniMax 大模型
      */
-    public TCMApp(ChatModel dashscopeChatModel) {
+    public TCMApp(MiniMaxChatModel chatModel) {
         // 初始化基于内存的对话记忆
         MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
                 .chatMemoryRepository(new InMemoryChatMemoryRepository())
                 .maxMessages(20)
                 .build();
-        chatClient = ChatClient.builder(dashscopeChatModel)
+        chatClient = ChatClient.builder(chatModel)
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(
                         MessageChatMemoryAdvisor.builder(chatMemory).build(),
@@ -113,6 +112,10 @@ public class TCMApp {
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
                 .call()
                 .chatResponse();
+        if (chatResponse.getResult() == null || chatResponse.getResult().getOutput() == null) {
+            log.error("AI 回复为空，请检查 API 配置和模型名称");
+            return "AI 回复为空，请检查 API 配置";
+        }
         String content = chatResponse.getResult().getOutput().getText();
         log.info("AI 回复: {}", content);
         return content;

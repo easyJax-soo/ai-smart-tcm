@@ -33,7 +33,12 @@ public class MyLoggerAdvisor implements CallAdvisor, StreamAdvisor {
 	}
 
 	private void observeAfter(ChatClientResponse chatClientResponse) {
-		log.info("AI Response: {}", chatClientResponse.chatResponse().getResult().getOutput().getText());
+		var cr = chatClientResponse.chatResponse();
+		if (cr.getResult() == null || cr.getResult().getOutput() == null) {
+			log.warn("AI Response: null, metadata={}", cr.getMetadata());
+			return;
+		}
+		log.info("AI Response: {}", cr.getResult().getOutput().getText());
 	}
 
 	@Override
