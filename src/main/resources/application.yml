@@ -5,14 +5,14 @@ spring:
     active: local
   ai:
     minimax:
-      api-key: ${MINIMAX_API_KEY:}
+      api-key: ${MINIMAX_API_KEY:sk-cp-lBBLo0f4TBAKEqStX5DUgvaCDc_SrcYWZUhF15Ga22kTgvHqPSNDQqpMGx66vL2F0EGHgksbS_Z1-uUbiz9C-qj5AS5dde9P4NxuTcYoIrJTejKrhS0Ze1Y}
       chat:
         options:
           model: MiniMax-M2.7-highspeed
           max-tokens: 4096
           temperature: 0.7
     openai:
-      api-key: ${SILICONFLOW_API_KEY:}
+      api-key: ${SILICONFLOW_API_KEY:sk-pflrtmuivsftehfjuelisvwzfsdtwnpljwpaekmdgpbadrhq}
       base-url: https://api.siliconflow.cn/v1/embeddings
       embedding:
         model: Qwen/Qwen3-Embedding-0.6B
