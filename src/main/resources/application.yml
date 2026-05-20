@@ -11,8 +11,11 @@ spring:
           model: MiniMax-M2.7-highspeed
           max-tokens: 4096
           temperature: 0.7
+    openai:
+      api-key: ${SILICONFLOW_API_KEY:}
+      base-url: https://api.siliconflow.cn/v1/embeddings
       embedding:
-        model: Embed-Embedding-240615
+        model: Qwen/Qwen3-Embedding-0.6B
 server:
   port: 38022
   servlet:

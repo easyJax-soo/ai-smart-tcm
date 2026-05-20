@@ -4,10 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.ai.chat.client.advisor.api.CallAdvisor;
-import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisor;
-import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.*;
 import reactor.core.publisher.Flux;
 
 /**
@@ -32,6 +29,12 @@ public class MyLoggerAdvisor implements CallAdvisor, StreamAdvisor {
 		return request;
 	}
 
+	private AdvisedRequest before(AdvisedRequest request) {
+		log.info("AI Request: {}", request.userText());
+		return request;
+	}
+
+
 	private void observeAfter(ChatClientResponse chatClientResponse) {
 		var cr = chatClientResponse.chatResponse();
 		if (cr.getResult() == null || cr.getResult().getOutput() == null) {
@@ -55,4 +58,18 @@ public class MyLoggerAdvisor implements CallAdvisor, StreamAdvisor {
 		Flux<ChatClientResponse> chatClientResponseFlux = chain.nextStream(chatClientRequest);
 		return (new ChatClientMessageAggregator()).aggregateChatClientResponse(chatClientResponseFlux, this::observeAfter);
 	}
+
+
+	private void observeAfter(AdvisedResponse advisedResponse) {
+		log.info("AI Response: {}", advisedResponse.response().getResult().getOutput().getText());
+	}
+
+	public AdvisedResponse aroundCall(AdvisedRequest advisedRequest, CallAroundAdvisorChain chain) {
+		advisedRequest = this.before(advisedRequest);
+		AdvisedResponse advisedResponse = chain.nextAroundCall(advisedRequest);
+		this.observeAfter(advisedResponse);
+		return advisedResponse;
+	}
+
+
 }

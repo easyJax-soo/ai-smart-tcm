@@ -1,16 +1,23 @@
 package com.bobo.aismartcloud.app;
 
 
+import com.bobo.aismartcloud.advisor.MyDIYLoggerAdvisor;
 import com.bobo.aismartcloud.advisor.MyLoggerAdvisor;
+import com.bobo.aismartcloud.rag.TCMDocumentLoader;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.document.Document;
 import org.springframework.ai.minimax.MiniMaxChatModel;
+import org.springframework.ai.vectorstore.SimpleVectorStore;
+import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
@@ -42,7 +49,7 @@ public class TCMApp {
             "  细致，像一位关心晚辈的邻家老爷爷。\n" +
             "\n" +
             "  ## 核心原则\n" +
-            "  1. **辨证论治**：像真实中医一样，通过\"望、闻、问、切\"了解用户，循序渐进地引导用户描述症状，不得急于给出结论\n" +
+            "  1. **辨证论治**：像真实中医一样，通过\"望、闻、问，切\"了解用户，循序渐进地引导用户描述症状，不得急于给出结论\n" +
             "  2. **追问细节**：主动询问与症状相关的关键信息（舌苔、睡眠、二便、情绪、月经等），引导越详细，判断越准确\n" +
             "  3. **温暖关怀**：关注用户的健康焦虑，用温和语言安慰用户情绪，不要制造恐慌\n" +
             "  4. **养生为主**：以食疗、穴位按摩、作息调整等养生方法为主，涉及处方/严重症状必须引导就医\n" +
@@ -166,17 +173,20 @@ public class TCMApp {
 
     // ==================== RAG 知识库相关 ====================
 
-//    @Resource
-//    private VectorStore tcmVectorStore;
+    @Resource
+    private VectorStore tcmVectorStore;
 
-//    @Resource
-//    private Advisor tcmRagCloudAdvisor;
+    //    @Resource
+    //    private Advisor tcmRagCloudAdvisor;
 
-//    @Resource
-//    private VectorStore pgVectorStore;
+    //    @Resource
+    //    private VectorStore pgVectorStore;
 
-//    @Resource
-//    private QueryRewriter queryRewriter;
+    //    @Resource
+    //    private QueryRewriter queryRewriter;
+
+    @Resource
+    private TCMDocumentLoader tcmDocumentLoader;
 
     /**
      * 和 RAG 知识库进行对话
@@ -185,38 +195,86 @@ public class TCMApp {
      * @param chatId  会话ID
      * @return AI 回复
      */
-//    public String doChatWithRag(String message, String chatId) {
-//        // 查询重写
+    public String doChatWithRag(String message, String chatId) {
+        // ========== Debug 分段排查 ==========
+        log.info("[RAG Debug] ====== 开始 RAG 检索 ======");
+        log.info("[RAG Debug] 传入问题: {}", message);
+        log.info("[RAG Debug] 向量库实际类型: {}", tcmVectorStore.getClass().getName());
+
+        // 第一步：确认文档文件存在
+        List<Document> documents = tcmDocumentLoader.loadMarkdowns();
+        log.info("[RAG Debug] 文档文件数量: {}", documents.size());
+        if (documents.isEmpty()) {
+            log.error("❌ 文档目录 classpath:document/*.md 为空或路径不对");
+            return "RAG 文档未找到，请检查 classpath:document/ 目录";
+        }
+
+        // 第二步：确认向量库类型
+        if (!(tcmVectorStore instanceof SimpleVectorStore)) {
+            log.error("❌ tcmVectorStore 不是 SimpleVectorStore，实际类型: {}", tcmVectorStore.getClass().getName());
+            return "向量库类型不对: " + tcmVectorStore.getClass().getName();
+        }
+        SimpleVectorStore svs = (SimpleVectorStore) tcmVectorStore;
+
+        // 第三步：手动检索看能不能召回
+        List<Document> searchResults;
+        try {
+            searchResults = svs.similaritySearch(message);
+        } catch (Exception e) {
+            log.error("❌ similaritySearch 失败（Embedding API 不可用）: {}", e.getMessage());
+            return "Embedding API 调用失败，无法进行向量检索。请检查 MiniMax Embedding 额度";
+        }
+        log.info("[RAG Debug] 检索召回 {} 条", searchResults.size());
+        for (int i = 0; i < searchResults.size(); i++) {
+            Document doc = searchResults.get(i);
+            String text = doc.getText();
+            log.info("[RAG Debug] 召回文档{}: {}", i + 1, text.length() > 100 ? text.substring(0, 100) + "..." : text);
+        }
+
+        // 第四步：把文档加入向量库（Embedding 可能会失败）
+        try {
+            svs.add(documents);
+            log.info("[RAG Debug] RAG 文档已加入向量库，数量: {}", documents.size());
+        } catch (Exception e) {
+            log.error("❌ Embedding API 调用失败，文档未加入向量库: {}", e.getMessage());
+            return "Embedding API 调用失败，请检查 MiniMax Embedding 额度: " + e.getMessage();
+        }
+
+        // 查询重写
 //        String rewrittenMessage = queryRewriter.doQueryRewrite(message);
-//        ChatResponse chatResponse = chatClient
-//                .prompt()
+        ChatResponse chatResponse = chatClient
+                .prompt()
 //                .user(rewrittenMessage)
-//                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
-//                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
-//                .advisors(new MyLoggerAdvisor())
-//                // 应用 RAG 知识库问答
-//                .advisors(new QuestionAnswerAdvisor(tcmVectorStore))
-//                // 应用 RAG 检索增强服务（基于云知识库服务）
-////                .advisors(tcmRagCloudAdvisor)
-//                // 应用 RAG 检索增强服务（基于 PgVector 向量存储）
-////                .advisors(new QuestionAnswerAdvisor(pgVectorStore))
-//                // 应用自定义的 RAG 检索增强服务
-////                .advisors(
-////                        TCMRagCustomAdvisorFactory.createTCMRagCustomAdvisor(
-////                                tcmVectorStore, "中医"
-////                        )
-////                )
-//                .call()
-//                .chatResponse();
-//        String content = chatResponse.getResult().getOutput().getText();
-//        log.info("RAG 回复: {}", content);
-//        return content;
-//    }
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                .advisors(new MyLoggerAdvisor())
+                .advisors(new MyDIYLoggerAdvisor())
+                // 应用 RAG 知识库问答
+                .advisors(new QuestionAnswerAdvisor(tcmVectorStore))
+                // 应用 RAG 检索增强服务（基于云知识库服务）
+//                .advisors(tcmRagCloudAdvisor)
+                // 应用 RAG 检索增强服务（基于 PgVector 向量存储）
+//                .advisors(new QuestionAnswerAdvisor(pgVectorStore))
+                // 应用自定义的 RAG 检索增强服务
+//                .advisors(
+//                        TCMRagCustomAdvisorFactory.createTCMRagCustomAdvisor(
+//                                tcmVectorStore, "中医"
+//                        )
+//                )
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult() != null && chatResponse.getResult().getOutput() != null
+                ? chatResponse.getResult().getOutput().getText()
+                : "AI 回复为空";
+        log.info("RAG 回复: {}", content);
+        return content;
+    }
 
     // ==================== 工具调用相关（暂未实现） ====================
 
-//    @Resource
-//    private ToolCallback[] allTools;
+    //    @Resource
+    //    private ToolCallback[] allTools;
 
     /**
      * AI 问诊（支持调用工具）
@@ -225,25 +283,25 @@ public class TCMApp {
      * @param chatId  会话ID
      * @return AI 回复
      */
-//    public String doChatWithTools(String message, String chatId) {
-//        ChatResponse chatResponse = chatClient
-//                .prompt()
-//                .user(message)
-//                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
-//                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
-//                .advisors(new MyLoggerAdvisor())
-//                .toolCallbacks(allTools)
-//                .call()
-//                .chatResponse();
-//        String content = chatResponse.getResult().getOutput().getText();
-//        log.info("工具调用回复: {}", content);
-//        return content;
-//    }
+    //    public String doChatWithTools(String message, String chatId) {
+    //        ChatResponse chatResponse = chatClient
+    //                .prompt()
+    //                .user(message)
+    //                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+    //                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+    //                .advisors(new MyLoggerAdvisor())
+    //                .toolCallbacks(allTools)
+    //                .call()
+    //                .chatResponse();
+    //        String content = chatResponse.getResult().getOutput().getText();
+    //        log.info("工具调用回复: {}", content);
+    //        return content;
+    //    }
 
     // ==================== MCP 服务相关（暂未实现） ====================
 
-//    @Resource
-//    private ToolCallbackProvider toolCallbackProvider;
+    //    @Resource
+    //    private ToolCallbackProvider toolCallbackProvider;
 
     /**
      * AI 问诊（调用 MCP 服务）
@@ -252,18 +310,18 @@ public class TCMApp {
      * @param chatId  会话ID
      * @return AI 回复
      */
-//    public String doChatWithMcp(String message, String chatId) {
-//        ChatResponse chatResponse = chatClient
-//                .prompt()
-//                .user(message)
-//                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
-//                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
-//                .advisors(new MyLoggerAdvisor())
-//                .toolCallbacks(toolCallbackProvider)
-//                .call()
-//                .chatResponse();
-//        String content = chatResponse.getResult().getOutput().getText();
-//        log.info("MCP 回复: {}", content);
-//        return content;
-//    }
+    //    public String doChatWithMcp(String message, String chatId) {
+    //        ChatResponse chatResponse = chatClient
+    //                .prompt()
+    //                .user(message)
+    //                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+    //                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+    //                .advisors(new MyLoggerAdvisor())
+    //                .toolCallbacks(toolCallbackProvider)
+    //                .call()
+    //                .chatResponse();
+    //        String content = chatResponse.getResult().getOutput().getText();
+    //        log.info("MCP 回复: {}", content);
+    //        return content;
+    //    }
 }

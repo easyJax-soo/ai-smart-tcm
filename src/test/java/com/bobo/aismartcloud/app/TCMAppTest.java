@@ -91,4 +91,12 @@ class TCMAppTest {
         System.out.println("用户: " + message);
         System.out.println("AI: " + answer);
     }
+
+    @Test
+    void doChatWithRag() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "胃窦水肿可以吃什么西药，中西结合来缓解一下？";
+        String answer =  tcmApp.doChatWithRag(message, chatId);
+        Assertions.assertNotNull(answer);
+    }
 }
