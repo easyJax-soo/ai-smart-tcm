@@ -1,10 +1,12 @@
 package com.bobo.aismartcloud.advisor;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClientMessageAggregator;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.client.ChatClientResponse;
-import org.springframework.ai.chat.client.advisor.api.*;
+import org.springframework.ai.chat.client.advisor.api.AdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
+import org.springframework.ai.chat.client.advisor.api.CallAdvisorChain;
+import org.springframework.ai.chat.client.advisor.api.StreamAdvisorChain;
 import reactor.core.publisher.Flux;
 
 /**
@@ -12,7 +14,7 @@ import reactor.core.publisher.Flux;
  * 打印 info 级别日志、只输出单次用户提示词和 AI 回复的文本
  */
 @Slf4j
-public class MyLoggerAdvisor implements CallAdvisor, StreamAdvisor {
+public class MyLoggerAdvisor implements BaseAdvisor {
 
 	@Override
 	public String getName() {
@@ -24,52 +26,21 @@ public class MyLoggerAdvisor implements CallAdvisor, StreamAdvisor {
 		return 0;
 	}
 
-	private ChatClientRequest before(ChatClientRequest request) {
+	@Override
+	public ChatClientRequest before(ChatClientRequest request, AdvisorChain chain) {
 		log.info("AI Request: {}", request.prompt());
 		return request;
 	}
 
-	private AdvisedRequest before(AdvisedRequest request) {
-		log.info("AI Request: {}", request.userText());
-		return request;
-	}
-
-
-	private void observeAfter(ChatClientResponse chatClientResponse) {
-		var cr = chatClientResponse.chatResponse();
+	@Override
+	public ChatClientResponse after(ChatClientResponse response, AdvisorChain chain) {
+		var cr = response.chatResponse();
 		if (cr.getResult() == null || cr.getResult().getOutput() == null) {
 			log.warn("AI Response: null, metadata={}", cr.getMetadata());
-			return;
+			return response;
 		}
 		log.info("AI Response: {}", cr.getResult().getOutput().getText());
+		return response;
 	}
-
-	@Override
-	public ChatClientResponse adviseCall(ChatClientRequest chatClientRequest, CallAdvisorChain chain) {
-		chatClientRequest = before(chatClientRequest);
-		ChatClientResponse chatClientResponse = chain.nextCall(chatClientRequest);
-		observeAfter(chatClientResponse);
-		return chatClientResponse;
-	}
-
-	@Override
-	public Flux<ChatClientResponse> adviseStream(ChatClientRequest chatClientRequest, StreamAdvisorChain chain) {
-		chatClientRequest = before(chatClientRequest);
-		Flux<ChatClientResponse> chatClientResponseFlux = chain.nextStream(chatClientRequest);
-		return (new ChatClientMessageAggregator()).aggregateChatClientResponse(chatClientResponseFlux, this::observeAfter);
-	}
-
-
-	private void observeAfter(AdvisedResponse advisedResponse) {
-		log.info("AI Response: {}", advisedResponse.response().getResult().getOutput().getText());
-	}
-
-	public AdvisedResponse aroundCall(AdvisedRequest advisedRequest, CallAroundAdvisorChain chain) {
-		advisedRequest = this.before(advisedRequest);
-		AdvisedResponse advisedResponse = chain.nextAroundCall(advisedRequest);
-		this.observeAfter(advisedResponse);
-		return advisedResponse;
-	}
-
 
 }

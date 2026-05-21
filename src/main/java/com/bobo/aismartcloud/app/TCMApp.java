@@ -1,14 +1,13 @@
 package com.bobo.aismartcloud.app;
 
 
-import com.bobo.aismartcloud.advisor.MyDIYLoggerAdvisor;
 import com.bobo.aismartcloud.advisor.MyLoggerAdvisor;
 import com.bobo.aismartcloud.rag.TCMDocumentLoader;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.QuestionAnswerAdvisor;
+import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
@@ -196,78 +195,36 @@ public class TCMApp {
      * @return AI 回复
      */
     public String doChatWithRag(String message, String chatId) {
-        // ========== Debug 分段排查 ==========
-        log.info("[RAG Debug] ====== 开始 RAG 检索 ======");
-        log.info("[RAG Debug] 传入问题: {}", message);
-        log.info("[RAG Debug] 向量库实际类型: {}", tcmVectorStore.getClass().getName());
-
-        // 第一步：确认文档文件存在
         List<Document> documents = tcmDocumentLoader.loadMarkdowns();
-        log.info("[RAG Debug] 文档文件数量: {}", documents.size());
         if (documents.isEmpty()) {
-            log.error("❌ 文档目录 classpath:document/*.md 为空或路径不对");
             return "RAG 文档未找到，请检查 classpath:document/ 目录";
         }
 
-        // 第二步：确认向量库类型
         if (!(tcmVectorStore instanceof SimpleVectorStore)) {
-            log.error("❌ tcmVectorStore 不是 SimpleVectorStore，实际类型: {}", tcmVectorStore.getClass().getName());
             return "向量库类型不对: " + tcmVectorStore.getClass().getName();
         }
         SimpleVectorStore svs = (SimpleVectorStore) tcmVectorStore;
 
-        // 第三步：手动检索看能不能召回
-        List<Document> searchResults;
-        try {
-            searchResults = svs.similaritySearch(message);
-        } catch (Exception e) {
-            log.error("❌ similaritySearch 失败（Embedding API 不可用）: {}", e.getMessage());
-            return "Embedding API 调用失败，无法进行向量检索。请检查 MiniMax Embedding 额度";
-        }
-        log.info("[RAG Debug] 检索召回 {} 条", searchResults.size());
-        for (int i = 0; i < searchResults.size(); i++) {
-            Document doc = searchResults.get(i);
-            String text = doc.getText();
-            log.info("[RAG Debug] 召回文档{}: {}", i + 1, text.length() > 100 ? text.substring(0, 100) + "..." : text);
-        }
-
-        // 第四步：把文档加入向量库（Embedding 可能会失败）
         try {
             svs.add(documents);
-            log.info("[RAG Debug] RAG 文档已加入向量库，数量: {}", documents.size());
         } catch (Exception e) {
-            log.error("❌ Embedding API 调用失败，文档未加入向量库: {}", e.getMessage());
-            return "Embedding API 调用失败，请检查 MiniMax Embedding 额度: " + e.getMessage();
+            return "Embedding API 调用失败: " + e.getMessage();
         }
 
-        // 查询重写
-//        String rewrittenMessage = queryRewriter.doQueryRewrite(message);
         ChatResponse chatResponse = chatClient
                 .prompt()
-//                .user(rewrittenMessage)
                 .user(message)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                // 应用 RAG 知识库问答（先检索）
+                .advisors(QuestionAnswerAdvisor.builder(tcmVectorStore).build())
+                // 打印请求和响应（后执行，此时请求已包含检索结果）
                 .advisors(new MyLoggerAdvisor())
-                .advisors(new MyDIYLoggerAdvisor())
-                // 应用 RAG 知识库问答
-                .advisors(new QuestionAnswerAdvisor(tcmVectorStore))
-                // 应用 RAG 检索增强服务（基于云知识库服务）
-//                .advisors(tcmRagCloudAdvisor)
-                // 应用 RAG 检索增强服务（基于 PgVector 向量存储）
-//                .advisors(new QuestionAnswerAdvisor(pgVectorStore))
-                // 应用自定义的 RAG 检索增强服务
-//                .advisors(
-//                        TCMRagCustomAdvisorFactory.createTCMRagCustomAdvisor(
-//                                tcmVectorStore, "中医"
-//                        )
-//                )
                 .call()
                 .chatResponse();
         String content = chatResponse.getResult() != null && chatResponse.getResult().getOutput() != null
                 ? chatResponse.getResult().getOutput().getText()
                 : "AI 回复为空";
-        log.info("RAG 回复: {}", content);
         return content;
     }
 

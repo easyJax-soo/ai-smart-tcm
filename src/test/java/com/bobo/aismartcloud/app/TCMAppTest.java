@@ -95,7 +95,7 @@ class TCMAppTest {
     @Test
     void doChatWithRag() {
         String chatId = UUID.randomUUID().toString();
-        String message = "胃窦水肿可以吃什么西药，中西结合来缓解一下？";
+        String message = "日常生活中如何养护脾胃？";
         String answer =  tcmApp.doChatWithRag(message, chatId);
         Assertions.assertNotNull(answer);
     }
