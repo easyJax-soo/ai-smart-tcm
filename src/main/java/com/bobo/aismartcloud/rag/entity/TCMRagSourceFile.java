@@ -26,5 +26,4 @@ public class TCMRagSourceFile {
     private List<String> tags;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
-    private Boolean deleted;
 }

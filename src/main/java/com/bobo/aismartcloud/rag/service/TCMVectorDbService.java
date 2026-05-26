@@ -1,9 +1,11 @@
 package com.bobo.aismartcloud.rag.service;
 
 import cn.hutool.crypto.digest.DigestUtil;
+import com.bobo.aismartcloud.rag.MyKeywordEnricher;
 import com.bobo.aismartcloud.rag.entity.TCMRagSourceFile;
 import com.bobo.aismartcloud.rag.mapper.TCMRagSourceFileMapper;
 import com.bobo.aismartcloud.rag.parser.DocumentParserFactory;
+import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.pgvector.PgVectorStore;
@@ -24,6 +26,9 @@ import java.util.List;
 @Service
 @Slf4j
 public class TCMVectorDbService {
+
+    @Resource
+    private MyKeywordEnricher myKeywordEnricher;
 
     private final PgVectorStore pgVectorStore;
     private final TCMRagSourceFileMapper sourceFileMapper;
@@ -84,10 +89,13 @@ public class TCMVectorDbService {
             return 0;
         }
 
-        // 3. 写入向量库
-        pgVectorStore.add(documents);
+        //3.使用AI帮文档补充元数据信息 excerpt_keywords
+        List<Document> enrichedDocuments  = myKeywordEnricher.enrichDocuments(documents);
 
-        // 4. 更新文档数量
+        // 4. 写入向量库
+        pgVectorStore.add(enrichedDocuments);
+
+        // 5. 更新文档数量
         sourceFileMapper.findByHash(fileHash).ifPresent(f ->
                 sourceFileMapper.updateDocumentCount(f.getId(), documents.size()));
 

@@ -55,8 +55,8 @@ public class MarkdownDocumentParserImpl implements DocumentParser {
             meta.put("source_file", fileName);
             meta.put("source_hash", fileHash);
             meta.put("file_type", "md");
-            meta.put("category", category);
-            meta.put("tags", tags);
+            if (category != null) meta.put("category", category);
+            if (tags != null) meta.put("tags", tags);
             docs.set(i, new Document(docs.get(i).getId(), docs.get(i).getText(), meta));
         }
         return docs;

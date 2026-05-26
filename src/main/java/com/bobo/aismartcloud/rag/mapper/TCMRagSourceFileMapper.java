@@ -42,7 +42,6 @@ public class TCMRagSourceFileMapper {
                 .tags(tags)
                 .createdAt(getLocalDateTime(rs, "created_at"))
                 .updatedAt(getLocalDateTime(rs, "updated_at"))
-                .deleted(rs.getObject("deleted") != null ? rs.getBoolean("deleted") : false)
                 .build();
     };
 
@@ -51,14 +50,15 @@ public class TCMRagSourceFileMapper {
         return ts != null ? ts.toLocalDateTime() : null;
     }
 
+    /**
+     * 插入文件元数据（根据 hash 去重，已存在则跳过）
+     */
     public void insert(TCMRagSourceFile file) {
         jdbcTemplate.update("""
                 INSERT INTO ai.ai_source_files
                     (file_name, file_hash, file_size, document_count, category, tags, created_at, updated_at)
-                SELECT ?, ?, ?, ?, ?, ?, ?, ?
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM ai.ai_source_files WHERE file_hash = ? AND deleted = FALSE
-                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT (file_hash) DO NOTHING
                 """,
                 file.getFileName(),
                 file.getFileHash(),
@@ -67,20 +67,19 @@ public class TCMRagSourceFileMapper {
                 file.getCategory(),
                 file.getTags() != null ? file.getTags().toArray(new String[0]) : null,
                 LocalDateTime.now(),
-                LocalDateTime.now(),
-                file.getFileHash());
+                LocalDateTime.now());
     }
 
     public Optional<TCMRagSourceFile> findByHash(String fileHash) {
         List<TCMRagSourceFile> list = jdbcTemplate.query(
-                "SELECT * FROM ai.ai_source_files WHERE file_hash = ? AND deleted = FALSE",
+                "SELECT * FROM ai.ai_source_files WHERE file_hash = ?",
                 ROW_MAPPER, fileHash);
         return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
     }
 
     public List<TCMRagSourceFile> findAll() {
         return jdbcTemplate.query(
-                "SELECT * FROM ai.ai_source_files WHERE deleted = FALSE ORDER BY created_at DESC",
+                "SELECT * FROM ai.ai_source_files ORDER BY created_at DESC",
                 ROW_MAPPER);
     }
 
@@ -88,18 +87,14 @@ public class TCMRagSourceFileMapper {
         jdbcTemplate.update("""
                 UPDATE ai.ai_source_files
                 SET document_count = ?, updated_at = ?
-                WHERE id = ? AND deleted = FALSE
+                WHERE id = ?
                 """, count, LocalDateTime.now(), id);
     }
 
     /**
-     * 软删除（标记 deleted = TRUE）
+     * 物理删除（删除向量后同步删除元数据）
      */
     public void deleteByHash(String fileHash) {
-        jdbcTemplate.update("""
-                UPDATE ai.ai_source_files
-                SET deleted = TRUE, updated_at = ?
-                WHERE file_hash = ?
-                """, LocalDateTime.now(), fileHash);
+        jdbcTemplate.update("DELETE FROM ai.ai_source_files WHERE file_hash = ?", fileHash);
     }
 }
