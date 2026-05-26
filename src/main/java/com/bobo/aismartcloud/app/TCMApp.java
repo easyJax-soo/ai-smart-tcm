@@ -3,6 +3,7 @@ package com.bobo.aismartcloud.app;
 
 import com.bobo.aismartcloud.advisor.MyLoggerAdvisor;
 import com.bobo.aismartcloud.rag.TCMDocumentLoader;
+import com.bobo.aismartcloud.rag.service.TCMVectorDbService;
 import jakarta.annotation.Resource;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -11,10 +12,12 @@ import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvi
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
-import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.minimax.MiniMaxChatModel;
+import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
+import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
+import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Component;
@@ -175,11 +178,11 @@ public class TCMApp {
     @Resource
     private VectorStore tcmVectorStore;
 
-    //    @Resource
-    //    private Advisor tcmRagCloudAdvisor;
+    @Resource
+    private VectorStore pgVectorStore;
 
     //    @Resource
-    //    private VectorStore pgVectorStore;
+    //    private Advisor tcmRagCloudAdvisor;
 
     //    @Resource
     //    private QueryRewriter queryRewriter;
@@ -228,7 +231,81 @@ public class TCMApp {
         return content;
     }
 
-    // ==================== 工具调用相关（暂未实现） ====================
+    // ==================== pgvector RAG（本地数据库） ====================
+
+    /**
+     * 诊断：直接查向量库看能搜到多少条
+     * @return 检索到的文档列表
+     */
+    public List<Document> diagnoseVectorSearch(String query) {
+        List<Document> docs = pgVectorStore.similaritySearch(query);
+        log.info("[诊断] 查询「{}」检索到 {} 条文档", query, docs.size());
+        for (Document d : docs) {
+            log.info("  分数: {}, 内容: {}", d.getScore(),
+                    d.getText().replace("\n", " ").substring(0, Math.min(80, d.getText().length())));
+        }
+        return docs;
+    }
+
+    /**
+     * 和 pgvector 向量数据库进行 RAG 对话
+     *
+     * @param message 用户输入
+     * @param chatId  会话ID
+     * @return AI 回复
+     */
+    public String doChatWithPgVectorRag(String message, String chatId) {
+        RetrievalAugmentationAdvisor ragAdvisor = RetrievalAugmentationAdvisor.builder()
+                .documentRetriever(VectorStoreDocumentRetriever.builder()
+                        .similarityThreshold(0.50)
+                        .vectorStore(pgVectorStore)
+                        .build())
+                .build();
+
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                .advisors(ragAdvisor)
+                .advisors(new MyLoggerAdvisor())
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult() != null && chatResponse.getResult().getOutput() != null
+                ? chatResponse.getResult().getOutput().getText()
+                : "AI 回复为空";
+        log.info("[PGVector RAG] 回复: {}", content);
+        return content;
+    }
+
+    /**
+     * pgvector RAG 流式对话
+     *
+     * @param message 用户输入
+     * @param chatId  会话ID
+     * @return AI 回复（流式）
+     */
+    public Flux<String> doChatWithPgVectorRagByStream(String message, String chatId) {
+        RetrievalAugmentationAdvisor ragAdvisor = RetrievalAugmentationAdvisor.builder()
+                .documentRetriever(VectorStoreDocumentRetriever.builder()
+                        .similarityThreshold(0.50)
+                        .vectorStore(pgVectorStore)
+                        .build())
+                .build();
+
+        log.info("[PGVector RAG] 查询: {}, 向量库类型: {}", message, pgVectorStore.getClass().getSimpleName());
+
+        return chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                .advisors(ragAdvisor)
+                .advisors(new MyLoggerAdvisor())
+                .stream()
+                .content();
+    }
+
 
     //    @Resource
     //    private ToolCallback[] allTools;

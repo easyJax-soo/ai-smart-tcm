@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.minimax.MiniMaxChatModel;
 import org.springframework.boot.test.context.SpringBootTest;
+import reactor.core.publisher.Flux;
 
 import java.util.UUID;
 
@@ -98,5 +99,26 @@ class TCMAppTest {
         String message = "日常生活中如何养护脾胃？";
         String answer =  tcmApp.doChatWithRag(message, chatId);
         Assertions.assertNotNull(answer);
+    }
+
+
+    @Test
+    void doChatWithPgVectorRagByStream() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "日常生活中如何养护脾胃？";
+        tcmApp.diagnoseVectorSearch(message);
+
+        Flux<String> answer = tcmApp.doChatWithPgVectorRagByStream(message, chatId);
+        System.out.println("流式回复: " + answer.blockFirst());  // 强制订阅并获取第一条
+
+    }
+
+    @Test
+    void doChatWithPgVectorRag() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "日常生活中如何养护脾胃？";
+        tcmApp.diagnoseVectorSearch(message);  // 先确认检索正常
+        String answer = tcmApp.doChatWithPgVectorRag(message, chatId);
+        System.out.println("最终回复: " + answer);
     }
 }
