@@ -17,6 +17,7 @@ import org.springframework.ai.document.Document;
 import org.springframework.ai.minimax.MiniMaxChatModel;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -307,8 +308,8 @@ public class TCMApp {
     }
 
 
-    //    @Resource
-    //    private ToolCallback[] allTools;
+        @Resource
+        private ToolCallback[] allTools;
 
     /**
      * AI 问诊（支持调用工具）
@@ -317,20 +318,22 @@ public class TCMApp {
      * @param chatId  会话ID
      * @return AI 回复
      */
-    //    public String doChatWithTools(String message, String chatId) {
-    //        ChatResponse chatResponse = chatClient
-    //                .prompt()
-    //                .user(message)
-    //                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
-    //                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
-    //                .advisors(new MyLoggerAdvisor())
-    //                .toolCallbacks(allTools)
-    //                .call()
-    //                .chatResponse();
-    //        String content = chatResponse.getResult().getOutput().getText();
-    //        log.info("工具调用回复: {}", content);
-    //        return content;
-    //    }
+        public String doChatWithTools(String message, String chatId) {
+            ChatResponse chatResponse = chatClient
+                    .prompt()
+                    .user(message)
+                    .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                            .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                    //日志
+                    .advisors(new MyLoggerAdvisor())
+                    //添加工具
+                    .toolCallbacks(allTools)
+                    .call()
+                    .chatResponse();
+            String content = chatResponse.getResult().getOutput().getText();
+            log.info("工具调用回复: {}", content);
+            return content;
+        }
 
     // ==================== MCP 服务相关（暂未实现） ====================
 

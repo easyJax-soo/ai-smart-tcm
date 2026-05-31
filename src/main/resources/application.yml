@@ -20,6 +20,10 @@ spring:
       embedding:
         options:
           model: Qwen/Qwen3-Embedding-0.6B
+
+search-api:
+  api-key: ${SEARCH-API_KEY}
+
 server:
   port: 38022
   servlet:
