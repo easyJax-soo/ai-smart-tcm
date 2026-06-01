@@ -146,6 +146,13 @@
 				</exclusion>
 			</exclusions>
 		</dependency>
+
+		<!-- 明确引入兼容版本的 MCP SDK -->
+		<dependency>
+			<groupId>io.modelcontextprotocol.sdk</groupId>
+			<artifactId>mcp</artifactId>
+			<version>0.7.0</version>
+		</dependency>
 	</dependencies>
 
 	<build>
