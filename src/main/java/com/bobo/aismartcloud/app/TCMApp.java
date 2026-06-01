@@ -18,6 +18,7 @@ import org.springframework.ai.minimax.MiniMaxChatModel;
 import org.springframework.ai.rag.advisor.RetrievalAugmentationAdvisor;
 import org.springframework.ai.rag.retrieval.search.VectorStoreDocumentRetriever;
 import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.transformer.splitter.TokenTextSplitter;
 import org.springframework.ai.vectorstore.SimpleVectorStore;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -335,10 +336,10 @@ public class TCMApp {
             return content;
         }
 
-    // ==================== MCP 服务相关（暂未实现） ====================
+    // ==================== MCP 服务相关 ====================
 
-    //    @Resource
-    //    private ToolCallbackProvider toolCallbackProvider;
+        @Resource
+        private ToolCallbackProvider toolCallbackProvider;
 
     /**
      * AI 问诊（调用 MCP 服务）
@@ -347,18 +348,18 @@ public class TCMApp {
      * @param chatId  会话ID
      * @return AI 回复
      */
-    //    public String doChatWithMcp(String message, String chatId) {
-    //        ChatResponse chatResponse = chatClient
-    //                .prompt()
-    //                .user(message)
-    //                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
-    //                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
-    //                .advisors(new MyLoggerAdvisor())
-    //                .toolCallbacks(toolCallbackProvider)
-    //                .call()
-    //                .chatResponse();
-    //        String content = chatResponse.getResult().getOutput().getText();
-    //        log.info("MCP 回复: {}", content);
-    //        return content;
-    //    }
+        public String doChatWithMcp(String message, String chatId) {
+            ChatResponse chatResponse = chatClient
+                    .prompt()
+                    .user(message)
+                    .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                            .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                    .advisors(new MyLoggerAdvisor())
+                    .toolCallbacks(toolCallbackProvider)
+                    .call()
+                    .chatResponse();
+            String content = chatResponse.getResult().getOutput().getText();
+            log.info("MCP 回复: {}", content);
+            return content;
+        }
 }

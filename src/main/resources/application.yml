@@ -20,6 +20,10 @@ spring:
       embedding:
         options:
           model: Qwen/Qwen3-Embedding-0.6B
+    mcp:
+      client:
+        stdio:
+          servers-configuration: classpath:mcp-servers.json
 
 search-api:
   api-key: ${SEARCH-API_KEY}
