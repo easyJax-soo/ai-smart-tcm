@@ -145,6 +145,7 @@ public class TCMApp {
                 .user(message)
                 .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
                         .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                //对比非流式输出，只需要把call改成steam即可
                 .stream()
                 .content();
     }
