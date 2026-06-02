@@ -184,12 +184,6 @@ public class TCMApp {
     @Resource
     private VectorStore pgVectorStore;
 
-    //    @Resource
-    //    private Advisor tcmRagCloudAdvisor;
-
-    //    @Resource
-    //    private QueryRewriter queryRewriter;
-
     @Resource
     private TCMDocumentLoader tcmDocumentLoader;
 

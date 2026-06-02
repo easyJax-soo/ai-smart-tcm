@@ -1,5 +1,6 @@
 package com.bobo.aismartcloud.controller;
 
+import com.bobo.aismartcloud.agent.MyManus;
 import com.bobo.aismartcloud.app.TCMApp;
 import jakarta.annotation.Resource;
 import org.springframework.ai.minimax.MiniMaxChatModel;
@@ -45,7 +46,7 @@ public class AiController {
         return tcmAppApp.doChatByStream(message, chatId);
     }
 
-    @GetMapping(value = "/love_app/chat/sse")
+    @GetMapping(value = "/tcm_app/chat/sse")
     public Flux<ServerSentEvent<String>> doChatWithTCMSSE(String message, String chatId) {//设置泛型为 ServerSentEvent。使用这种方式可省略 MediaType
         return tcmAppApp.doChatByStream(message, chatId)
                 .map(chunk -> ServerSentEvent.<String>builder()
@@ -53,7 +54,7 @@ public class AiController {
                         .build());
     }
 
-    @GetMapping("/love_app/chat/sse/emitter")
+    @GetMapping("/tcm_app/chat/sse/emitter")
     public SseEmitter doChatWithLoveAppSseEmitter(String message, String chatId) {
 
         SseEmitter emitter = new SseEmitter(180000L);//设置超时时间
@@ -77,6 +78,11 @@ public class AiController {
     }
 
 
+    @GetMapping("/manus/chat")
+    public SseEmitter doChatWithManus(String message) {
+        MyManus yuManus = new MyManus(allTools, miniMaxChatModel);
+        return yuManus.runStream(message);
+    }
 
 
 }

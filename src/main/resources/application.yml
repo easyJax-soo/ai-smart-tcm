@@ -26,7 +26,7 @@ spring:
           servers-configuration: classpath:mcp-servers.json
 
 search-api:
-  api-key: ${SEARCH-API_KEY}
+  api-key: ${SEARCH_API_KEY:}
 
 server:
   port: 38022
