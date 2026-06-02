@@ -97,7 +97,7 @@ class TCMAppTest {
     void doChatWithRag() {
         String chatId = UUID.randomUUID().toString();
         String message = "日常生活中如何养护脾胃？";
-        String answer =  tcmApp.doChatWithRag(message, chatId);
+        String answer = tcmApp.doChatWithRag(message, chatId);
         Assertions.assertNotNull(answer);
     }
 
@@ -121,4 +121,14 @@ class TCMAppTest {
         String answer = tcmApp.doChatWithPgVectorRag(message, chatId);
         System.out.println("最终回复: " + answer);
     }
+
+
+    @Test
+    void doChatWithMcp() {
+        String chatId = UUID.randomUUID().toString();
+        String message = "我想调理一下胃病，我住在广州市一德路旁边，请帮我找出5公里内的能看中医的地方?";
+        String answer = tcmApp.doChatWithMcp(message, chatId);
+        System.out.println("最终回复: " + answer);
+    }
+
 }

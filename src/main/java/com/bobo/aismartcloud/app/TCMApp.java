@@ -314,22 +314,22 @@ public class TCMApp {
      * @param chatId  会话ID
      * @return AI 回复
      */
-        public String doChatWithTools(String message, String chatId) {
-            ChatResponse chatResponse = chatClient
-                    .prompt()
-                    .user(message)
-                    .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
-                            .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
-                    //日志
-                    .advisors(new MyLoggerAdvisor())
-                    //添加工具
-                    .toolCallbacks(allTools)
-                    .call()
-                    .chatResponse();
-            String content = chatResponse.getResult().getOutput().getText();
-            log.info("工具调用回复: {}", content);
-            return content;
-        }
+    public String doChatWithTools(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                //日志
+                .advisors(new MyLoggerAdvisor())
+                //添加工具
+                .toolCallbacks(allTools)
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
+        log.info("工具调用回复: {}", content);
+        return content;
+    }
 
     // ==================== MCP 服务相关 ====================
 
@@ -343,18 +343,18 @@ public class TCMApp {
      * @param chatId  会话ID
      * @return AI 回复
      */
-        public String doChatWithMcp(String message, String chatId) {
-            ChatResponse chatResponse = chatClient
-                    .prompt()
-                    .user(message)
-                    .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
-                            .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
-                    .advisors(new MyLoggerAdvisor())
-                    .toolCallbacks(toolCallbackProvider)
-                    .call()
-                    .chatResponse();
-            String content = chatResponse.getResult().getOutput().getText();
-            log.info("MCP 回复: {}", content);
-            return content;
-        }
+    public String doChatWithMcp(String message, String chatId) {
+        ChatResponse chatResponse = chatClient
+                .prompt()
+                .user(message)
+                .advisors(spec -> spec.param(ChatMemory.CONVERSATION_ID, chatId)
+                        .param(CHAT_MEMORY_RETRIEVE_SIZE_KEY, DEFAULT_CHAT_MEMORY_RETRIEVE_SIZE))
+                .advisors(new MyLoggerAdvisor())
+                .toolCallbacks(toolCallbackProvider)
+                .call()
+                .chatResponse();
+        String content = chatResponse.getResult().getOutput().getText();
+        log.info("MCP 回复: {}", content);
+        return content;
+    }
 }
