@@ -11,13 +11,13 @@ const routes: RouteRecordRaw[] = [
     meta: { title: '应用中心' }
   },
   {
-    path: '/tcm-chat',
+    path: '/tcm-chat/:chatId?',
     name: 'TCMChat',
     component: () => import('@/views/TCMAIChat.vue'),
     meta: { title: 'AI 云中医问诊' }
   },
   {
-    path: '/manus-chat',
+    path: '/manus-chat/:chatId?',
     name: 'ManusChat',
     component: () => import('@/views/ManusChat.vue'),
     meta: { title: 'AI 超级智能体' }

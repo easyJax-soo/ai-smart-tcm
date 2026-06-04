@@ -3,6 +3,14 @@
     <!-- ============ 顶部导航栏 ============ -->
     <header class="chat-header">
       <div class="header-left">
+        <el-button
+          v-if="showSidebarToggle"
+          text
+          class="menu-btn"
+          @click="$emit('toggleSidebar')"
+        >
+          <el-icon :size="20"><Menu /></el-icon>
+        </el-button>
         <el-button text class="back-btn" @click="goBack">
           <el-icon :size="20"><ArrowLeft /></el-icon>
         </el-button>
@@ -139,11 +147,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, nextTick } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { generateUUID } from '@/utils/uuid'
 import { SSEParser } from '@/api/sse'
+import { getChatMessages } from '@/api/ai'
 import type { ChatMessage, SSECallbacks } from '@/types/chat'
 
 /**
@@ -168,6 +177,10 @@ interface ChatRoomProps {
   welcomeMessage?: string
   /** 提示问题列表 */
   welcomeTips?: string[]
+  /** 外部传入的 chatId（受控模式）。为空则首次挂载时自动生成 */
+  initialChatId?: string
+  /** 是否显示"菜单"按钮（移动端用） */
+  showSidebarToggle?: boolean
 }
 
 const props = withDefaults(defineProps<ChatRoomProps>(), {
@@ -176,16 +189,28 @@ const props = withDefaults(defineProps<ChatRoomProps>(), {
   placeholder: '请输入消息，按 Enter 发送，Shift + Enter 换行',
   welcomeTitle: '开始对话吧',
   welcomeMessage: '向 AI 发送一条消息，开启你的智能对话',
-  welcomeTips: () => []
+  welcomeTips: () => [],
+  initialChatId: '',
+  showSidebarToggle: false
 })
+
+/**
+ * 事件
+ * - toggleSidebar: 移动端点击菜单按钮
+ * - requestNewSession: 点击 ChatRoom 内部的"新会话"按钮（父组件负责跳路由）
+ */
+const emit = defineEmits<{
+  toggleSidebar: []
+  requestNewSession: []
+}>()
 
 const router = useRouter()
 
 /** 主题色对应的 icon 颜色 */
 const iconColor = computed(() => (props.themeColor === 'green' ? '#67c23a' : '#409eff'))
 
-/** 当前聊天会话 id（页面挂载时生成一次） */
-const chatId = ref<string>('')
+/** 当前聊天会话 id（受控：外部传值则用外部的，否则自动生成） */
+const chatId = ref<string>(props.initialChatId || generateUUID())
 
 /** 消息列表 */
 const messages = ref<ChatMessage[]>([])
@@ -199,6 +224,9 @@ let currentParser: SSEParser | null = null
 /** 是否正在流式接收 */
 const isStreaming = ref(false)
 
+/** 是否正在加载历史 */
+const isLoadingHistory = ref(false)
+
 /** 消息区域 DOM */
 const bodyRef = ref<HTMLElement | null>(null)
 
@@ -208,9 +236,73 @@ const canSend = computed(() => inputText.value.trim().length > 0 && !isStreaming
 /** 当前正在流式接收的 AI 消息 id（用于 onChunk 局部更新） */
 let activeMessageId = ''
 
-/* ============ 生命周期 ============ */
-onMounted(() => {
+/* ============ 历史会话加载 ============ */
+
+/**
+ * 拉取指定 chatId 的历史消息并填充到 messages
+ */
+const loadHistory = async (id: string) => {
+  if (!id) return
+  isLoadingHistory.value = true
+  try {
+    const history = await getChatMessages(id)
+    messages.value = history.map((m) => ({
+      id: generateUUID(),
+      role: m.role,
+      content: m.content,
+      status: 'done',
+      timestamp: Date.now()
+    }))
+    await nextTick()
+    scrollToBottom()
+  } catch {
+    ElMessage.error('加载历史失败')
+    messages.value = []
+  } finally {
+    isLoadingHistory.value = false
+  }
+}
+
+/**
+ * 切换到全新会话（清空消息 + 新生成 chatId）
+ */
+const startNewSession = () => {
+  // 中断流
+  if (currentParser && !currentParser.isCompleted()) {
+    currentParser.abort()
+  }
+  currentParser = null
+  isStreaming.value = false
+  messages.value = []
+  inputText.value = ''
   chatId.value = generateUUID()
+}
+
+/** 监听外部传入的 chatId 变化 */
+watch(
+  () => props.initialChatId,
+  (newId, oldId) => {
+    if (newId === oldId) return
+    if (!newId) {
+      // 父组件传空字符串 = 全新会话
+      startNewSession()
+      return
+    }
+    if (newId === chatId.value) return
+    // 切换到指定会话
+    chatId.value = newId
+    loadHistory(newId)
+  },
+  { immediate: false }
+)
+
+/* ============ 生命周期 ============ */
+onMounted(async () => {
+  if (props.initialChatId) {
+    // 受控模式：外部指定了 chatId，加载其历史
+    await loadHistory(props.initialChatId)
+  }
+  // 否则 chatId 已在 ref 初始化时自动生成，messages 保持空（显示欢迎页）
 })
 
 onBeforeUnmount(() => {
@@ -238,9 +330,12 @@ const goBack = () => {
   }
 }
 
-/** 开启新会话 */
+/** 开启新会话（事件冒泡到父组件，父组件负责跳路由） */
 const onNewSession = () => {
-  if (messages.value.length === 0) return
+  if (messages.value.length === 0) {
+    emit('requestNewSession')
+    return
+  }
   const doReset = () => {
     if (currentParser && !currentParser.isCompleted()) {
       currentParser.abort()
@@ -248,8 +343,8 @@ const onNewSession = () => {
     currentParser = null
     isStreaming.value = false
     messages.value = []
-    chatId.value = generateUUID()
-    ElMessage.success('已开启新会话')
+    inputText.value = ''
+    emit('requestNewSession')
   }
   if (isStreaming.value) {
     ElMessageBox.confirm('AI 正在回复中，开启新会话将中断当前回复。', '提示', {

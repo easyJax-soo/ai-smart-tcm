@@ -10,8 +10,6 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
 import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
-import org.springframework.ai.chat.memory.InMemoryChatMemoryRepository;
-import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.minimax.MiniMaxChatModel;
@@ -89,14 +87,10 @@ public class TCMApp {
     /**
      * 初始化 ChatClient
      *
-     * @param chatModel MiniMax 大模型
+     * @param chatModel  MiniMax 大模型
+     * @param chatMemory 对话记忆（由 MemoryConfig 装配：PGSQL + Redis + MessagePack）
      */
-    public TCMApp(MiniMaxChatModel chatModel) {
-        // 初始化基于内存的对话记忆
-        MessageWindowChatMemory chatMemory = MessageWindowChatMemory.builder()
-                .chatMemoryRepository(new InMemoryChatMemoryRepository())
-                .maxMessages(20)
-                .build();
+    public TCMApp(MiniMaxChatModel chatModel, ChatMemory chatMemory) {
         chatClient = ChatClient.builder(chatModel)
                 .defaultSystem(SYSTEM_PROMPT)
                 .defaultAdvisors(

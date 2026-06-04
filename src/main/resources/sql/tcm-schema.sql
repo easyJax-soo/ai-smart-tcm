@@ -28,3 +28,18 @@ CREATE TABLE IF NOT EXISTS ai.ai_source_files (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- ================================================================
+-- 聊天记忆持久化（PG + Redis 双层架构）
+-- 执行方式: psql -U postgres -d postgres -f tcm-schema.sql
+-- 说明: 写入由 TwoTierChatMemoryRepository 完成，序列化使用 MessagePack
+-- ================================================================
+CREATE TABLE IF NOT EXISTS ai.ai_chat_memory (
+    chat_id    VARCHAR(64)  PRIMARY KEY,
+    messages   BYTEA        NOT NULL,
+    updated_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 按更新时间倒序索引（用于将来"最近会话"查询）
+CREATE INDEX IF NOT EXISTS idx_ai_chat_memory_updated_at
+    ON ai.ai_chat_memory(updated_at DESC);

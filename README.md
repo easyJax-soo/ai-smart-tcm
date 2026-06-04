@@ -90,7 +90,7 @@
 ### 🩺 智能云中医问诊（TCM App）
 
 - ✅ **超长 System Prompt 工程化**：2000+ 字角色设定，把 40 年老中医的"望闻问切"流程化为可计算的对话模板
-- ✅ **多轮对话记忆**：基于 `MessageWindowChatMemory`（滑动窗口 20 轮），理解上下文追问
+- ✅ **多轮对话记忆**：[PG + Redis + MessagePack 双层架构](#-对话记忆持久化架构)（滑动窗口 20 条），理解上下文追问
 - ✅ **结构化输出**：内置 `ConsultationReport` 实体类，可自动生成"问诊报告"
 - ✅ **流式 + 同步双模式**：同一接口既支持 SSE 打字机，也支持传统同步调用
 - ✅ **RAG 增强**：可加载 `classpath:document/` 下的中医知识库 Markdown，实现"知识库 + LLM"双驱动
@@ -120,6 +120,83 @@
 - ✅ **统一异常拦截 + 标准化响应**
 - ✅ **Maven Wrapper + npm 双端构建**：开箱即用，无需配置
 - ✅ **完善的单元测试**：核心工具类、AI 应用、Agent 都有测试覆盖
+
+---
+
+## 💾 对话记忆持久化架构
+
+每个 `chatId` 的对话历史按下面这套方案存储。业务代码只看到 Spring AI 的 `ChatMemory` 接口，下游完全透明。
+
+### 架构图
+
+```
+   TCMApp / Manus
+        │
+        ▼
+   ChatMemory (Spring AI 接口)
+        │
+        └─ MessageWindowChatMemory (maxMessages=20)
+              └─ TwoTierChatMemoryRepository (实现 ChatMemoryRepository)
+                    ├─ 读路径：Redis hit → 返；miss → PG bytea → 回填 Redis
+                    └─ 写路径：PG bytea (UPSERT) + Redis (best-effort)
+                          └─ MessagePackChatMemoryCodec (Jackson + MessagePack)
+```
+
+### PGSQL 冷存储
+
+- 表：`ai.ai_chat_memory (chat_id PK, messages BYTEA, updated_at)`
+- 消息列表 → MessagePack 二进制 → `bytea` 列
+- 写入用 `INSERT ... ON CONFLICT DO UPDATE`，主键冲突即覆盖
+- DDL 见 `src/main/resources/sql/tcm-schema.sql` 末尾，**手动 `psql -f` 执行**（不依赖 Spring Boot auto-init）
+
+### Redis 热缓存（可选）
+
+- 启用开关：`CHAT_MEMORY_REDIS_ENABLED=true`（默认关，应用启动不依赖 Redis 是否在跑）
+- Key 格式：`chat:memory:{chatId}`，Value 是 MessagePack 字节的 base64
+- TTL：默认 24h（可配）
+- **容灾**：所有 Redis 调用包 try/catch —— Redis 挂了自动降级 PG，应用不中断
+
+### 为什么选 MessagePack + Jackson
+
+| 候选 | 体积 | 速度 | 跨语言 | 选 |
+|------|------|------|--------|----|
+| Jackson JSON | 中 | 中 | ✅ | — |
+| Kryo | 小 | 快 | ❌ | — |
+| **MessagePack (jackson-dataformat-msgpack)** | **小** | **快** | **✅** | **✓** |
+| JDK Serializable | 大 | 慢 | ❌ | — |
+
+聊天消息 KB 级量，体积差异不显著；**跨语言可读**才是 MessagePack 的关键收益（Python 端行为分析、AI 训练数据导出）。
+
+### 窗口大小（`maxMessages=20`）
+
+LLM 一次能"看到"的对话历史有长度上限。**每个 `chatId` 最多保留最近 20 条消息**（约 10 轮用户-AI 来回），超过的由 Spring AI 的 `MessageWindowChatMemory` 自动丢弃。
+
+为什么是 20：
+- **LLM 上下文窗口有限**（MiniMax-M2.7-highspeed 是 4096 tokens）。20 条 × 500 token/条 ≈ 10k tokens，再加上 system prompt + RAG 检索结果，会塞爆上下文
+- **成本**：token 数直接挂钩 LLM 调用的钱
+- **延迟**：Prompt 越长，推理越慢
+
+### 关键文件
+
+```
+src/main/java/com/bobo/aismartcloud/
+├── config/
+│   ├── MemoryConfig.java          # 装配 ChatMemory bean
+│   └── RedisConfig.java           # 条件化 StringRedisTemplate
+└── memory/
+    ├── SerializedMessage.java           # 多态 Message 中转 record
+    ├── MessagePackChatMemoryCodec.java  # Jackson + MessagePack 编解码
+    └── TwoTierChatMemoryRepository.java # PG + Redis 双层仓库
+```
+
+### 开关速查
+
+| 场景 | 配置 | 行为 |
+|------|------|------|
+| 默认 | 不开 Redis | 仅 PG，重启不丢，启动不依赖 Redis |
+| 启用热缓存 | `CHAT_MEMORY_REDIS_ENABLED=true` | Redis 命中毫秒级，挂了降级 PG |
+| 调整窗口 | `chat.memory.window-size: 30` | 每个 chatId 多保留 10 条（注意 token 成本） |
+| 调整缓存 TTL | `chat.memory.redis.ttl: 12h` | Redis key 过期时间 |
 
 ---
 

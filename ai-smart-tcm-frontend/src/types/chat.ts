@@ -38,3 +38,27 @@ export interface SSECallbacks {
   /** 出错时触发 */
   onError: (err: Error) => void
 }
+
+/**
+ * 历史会话列表项
+ */
+export interface ChatHistoryItem {
+  /** 会话 ID（UUID 字符串） */
+  chatId: string
+  /** 标题：取首条 USER 消息截断 30 字 */
+  title: string
+  /** 最近一次更新时间，ISO 字符串 */
+  updatedAt: string
+  /** 消息条数 */
+  messageCount: number
+}
+
+/**
+ * 单条历史消息
+ */
+export interface HistoryMessage {
+  /** "user" 或 "ai" */
+  role: MessageRole
+  /** 消息文本 */
+  content: string
+}

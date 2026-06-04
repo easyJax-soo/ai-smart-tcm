@@ -1,5 +1,6 @@
 import { SSEParser } from './sse'
-import type { SSECallbacks } from '@/types/chat'
+import request from './request'
+import type { SSECallbacks, ChatHistoryItem, HistoryMessage } from '@/types/chat'
 
 /**
  * API 前缀
@@ -48,4 +49,25 @@ export function chatWithManusStream(
   const parser = new SSEParser()
   parser.connect(url, callbacks)
   return parser
+}
+
+/* ============================================================
+ *  会话历史（侧边栏）
+ * ============================================================ */
+
+/** GET /api/ai/chat-history */
+export function listChatHistory(): Promise<ChatHistoryItem[]> {
+  return request.get<ChatHistoryItem[], ChatHistoryItem[]>('/ai/chat-history')
+}
+
+/** GET /api/ai/chat-history/{chatId}/messages */
+export function getChatMessages(chatId: string): Promise<HistoryMessage[]> {
+  return request.get<HistoryMessage[], HistoryMessage[]>(
+    `/ai/chat-history/${encodeURIComponent(chatId)}/messages`
+  )
+}
+
+/** DELETE /api/ai/chat-history/{chatId} */
+export function deleteChatHistory(chatId: string): Promise<void> {
+  return request.delete<void, void>(`/ai/chat-history/${encodeURIComponent(chatId)}`)
 }
