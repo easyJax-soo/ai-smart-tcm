@@ -28,17 +28,15 @@
 
 ## ✨ 这是一个怎样的项目
 
-**AI Smart Cloud** 不是一个 demo 级别的 AI 玩具，而是一个**真正生产可用**的全栈 AI 应用底座。它把当下最热门的 AI 工程化技术一网打尽：
+**AI Smart Cloud** 一个**真正生产可用**的全栈 AI 应用底座。它把当下最热门的 AI 工程化技术一网打尽：
 
 - 🤖 **两大旗舰应用**：垂直领域的 **AI 云中医问诊**（模拟 40 年经验老中医） + 通用领域的 **AI 超级智能体**（自主规划 + 工具调用）
 - 🧠 **大模型双剑合璧**：对话用 **MiniMax-M2.7-highspeed**（国产推理大模型），向量化用 **Qwen3-Embedding-0.6B**（阿里通义嵌入模型）
 - 🔌 **MCP 协议原生支持**：通过 stdio 协议接入 [Amap 高德地图 MCP Server](https://github.com/amap/amap-maps-mcp-server)，让 AI 拥有调用外部世界的能力
 - 🛠️ **自研 ReAct + Tool Calling 智能体框架**：从零实现 `ReActAgent → ToolCallAgent → MyManus` 的三层 Agent 体系，**最大 20 步自主规划**
 - 📚 **双模 RAG 引擎**：内置 `SimpleVectorStore`（开发期） + `PgVectorStore`（生产期），按场景无缝切换
-- ⚡ **全链路 SSE 流式**：从后端 `Flux<ServerSentEvent>` 到前端自定义 `SSEParser`，**打字机效果丝滑到底**
+- ⚡ **全链路 SSE 流式**：从后端 `Flux<ServerSentEvent>` 到前端自定义 `SSEParser`，**打字机效果**
 - 🩺 **中医垂直 Prompt 工程**：超 2000 字的 System Prompt，把"望闻问切""辨证论治"等中医方法论工程化
-
-> 一句话：**这个项目是 Spring AI 1.1.6 时代的最佳实践样板间**。
 
 ---
 
@@ -72,6 +70,12 @@
 </p>
 
 > 与中医应用的"垂直专精"不同，超级智能体走的是"通用全能"路线。它能调度 7 个内置工具（Web 搜索、网页抓取、文件操作、PDF 生成、终端命令、资源下载、终止控制），自主拆解复杂任务——"北京三日游攻略"会触发"搜索 → 抓取 → 整理 → PDF 输出"的完整链路。
+
+
+
+### 4. RAG知识库管理
+
+![image-20260604154518185](./assets/image-20260604154518185.png)
 
 ---
 
@@ -271,7 +275,8 @@
 - **JDK**: 21+
 - **Maven**: 3.8+ （项目已带 `mvnw`）
 - **Node.js**: >= 20.20.2（前端）
-- **PostgreSQL**: 14+（仅生产模式 RAG 必需，开发期可用 SimpleVectorStore）
+- **PostgreSQL**: 17+（仅生产模式 RAG 必需，开发期可用 SimpleVectorStore）
+- **PGvector**：1.8
 - **npx**: 必需（MCP Server 通过 npx 启动）
 
 ### 1. 克隆 & 配置环境变量
@@ -308,22 +313,7 @@ POSTGRES_PASSWORD=xxxxxxxxxxxx
 mvn spring-boot:run
 ```
 
-启动成功后将看到：
 
-```
-  .   ____          _            __ _ _
- /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
-( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
- \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
-  '  |____| .__|_| |_|_| |_\__, | / / / /
- =========|_|==============|___/=/_/_/_/
-
-:: Spring Boot ::               (v3.4.4)
-...
-Started AiSmartCloudApplication in 5.234 seconds
-```
-
-后端服务地址：`http://localhost:38022/api`
 
 ### 3. 启动前端
 

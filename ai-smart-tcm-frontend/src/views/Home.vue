@@ -22,7 +22,7 @@
     <!-- 应用列表 -->
     <main class="app-list">
       <el-row :gutter="20" class="row">
-        <el-col :xs="24" :sm="12" :md="12" :lg="12">
+        <el-col :xs="24" :sm="12" :md="8" :lg="8">
           <el-card
             class="app-card tcm"
             shadow="hover"
@@ -39,7 +39,7 @@
           </el-card>
         </el-col>
 
-        <el-col :xs="24" :sm="12" :md="12" :lg="12">
+        <el-col :xs="24" :sm="12" :md="8" :lg="8">
           <el-card
             class="app-card manus"
             shadow="hover"
@@ -52,6 +52,23 @@
             <p>通用超级智能体，支持多工具协同调用、复杂任务规划与执行，应对各类业务问题。</p>
             <el-button type="primary" plain class="enter-btn">
               立即体验 <el-icon><ArrowRight /></el-icon>
+            </el-button>
+          </el-card>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="8" :lg="8">
+          <el-card
+            class="app-card rag"
+            shadow="hover"
+            @click="goTo('/rag-management')"
+          >
+            <div class="card-icon">
+              <el-icon :size="40" color="#7c3aed"><Files /></el-icon>
+            </div>
+            <h2>RAG 知识库管理</h2>
+            <p>上传 Markdown 文档，自动切分并生成向量，为 AI 问答提供检索增强上下文。</p>
+            <el-button type="primary" color="#7c3aed" plain class="enter-btn">
+              进入管理 <el-icon><ArrowRight /></el-icon>
             </el-button>
           </el-card>
         </el-col>
@@ -168,6 +185,9 @@ const goTo = (path: string) => {
 }
 .app-card.manus {
   background: linear-gradient(135deg, #ecf5ff 0%, #d9ecff 100%);
+}
+.app-card.rag {
+  background: linear-gradient(135deg, #f5f0ff 0%, #ead8ff 100%);
 }
 .card-icon {
   width: 64px;

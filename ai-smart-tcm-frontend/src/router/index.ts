@@ -23,6 +23,12 @@ const routes: RouteRecordRaw[] = [
     meta: { title: 'AI 超级智能体' }
   },
   {
+    path: '/rag-management',
+    name: 'RagManagement',
+    component: () => import('@/views/RagManagement.vue'),
+    meta: { title: 'RAG 知识库管理' }
+  },
+  {
     path: '/:pathMatch(.*)*',
     redirect: '/'
   }
