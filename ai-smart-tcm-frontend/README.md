@@ -2,8 +2,8 @@
 
 > AI 智能云中医问诊 & 智能体应用 —— 前端项目
 
-基于 Vue 3 + Vite + TypeScript + Element Plus 开发的 AI 对话前端，包含两个核心应用：
-**AI 云中医问诊** 与 **AI 超级智能体**。两个应用均通过 SSE（Server-Sent Events）实时接收 AI 回复，实现打字机效果。
+基于 Vue 3 + Vite + TypeScript + Element Plus 开发的 AI 对话前端，包含三大核心应用：
+**AI 云中医问诊**、**AI 超级智能体** 与 **RAG 知识库管理**。前两个应用通过 SSE（Server-Sent Events）实时接收 AI 回复，实现打字机效果；RAG 知识库管理提供文档上传、向量化与检索增强的可视化管理界面。
 
 ---
 
@@ -17,6 +17,7 @@
 - [核心功能](#核心功能)
 - [后端接口约定](#后端接口约定)
 - [SSE 消息处理规范](#sse-消息处理规范)
+- [RAG 知识库管理](#rag-知识库管理)
 - [移动端适配](#移动端适配)
 - [常见问题](#常见问题)
 
@@ -58,7 +59,8 @@ ai-smart-tcm-frontend/
     ├── api/
     │   ├── request.ts             # Axios 实例封装
     │   ├── sse.ts                 # SSE 解析器（核心）
-    │   └── ai.ts                  # AI 业务接口封装
+    │   ├── ai.ts                  # AI 业务接口封装
+    │   └── rag.ts                 # RAG 知识库接口封装
     ├── components/
     │   └── ChatRoom.vue           # 通用聊天室组件
     ├── router/
@@ -66,13 +68,15 @@ ai-smart-tcm-frontend/
     ├── styles/
     │   └── index.css              # 全局样式
     ├── types/
-    │   └── chat.ts                # 消息 / 回调类型定义
+    │   ├── chat.ts                # 消息 / 回调类型定义
+    │   └── rag.ts                 # RAG 知识库类型定义
     ├── utils/
     │   └── uuid.ts                # UUID 工具
     └── views/
         ├── Home.vue               # 主页：应用切换
         ├── TCMAIChat.vue          # AI 云中医问诊页
-        └── ManusChat.vue          # AI 超级智能体页
+        ├── ManusChat.vue          # AI 超级智能体页
+        └── RagManagement.vue      # RAG 知识库管理页
 ```
 
 ---
@@ -152,7 +156,7 @@ VITE_API_PREFIX=/api
 
 ### 1. 应用中心（主页）
 
-`/` 路径，展示两个 AI 应用的入口卡片，支持点击进入对应聊天室。
+`/` 路径，展示三个 AI 应用的入口卡片，支持点击进入对应页面。
 
 ### 2. AI 云中医问诊
 
@@ -170,7 +174,20 @@ VITE_API_PREFIX=/api
 - 蓝色主题，通用智能体
 - 同样的聊天室交互，支持中途停止生成
 
-### 4. 通用聊天室能力
+### 4. RAG 知识库管理
+
+`/rag-management` 路径，对应后端 `RagController`（`/api/rag/*`）。
+
+- 紫色主题，可视化管理向量知识库的源文档
+- **统计概览**：文档总数、向量片段、占用空间、分类数量
+- **搜索 / 筛选**：按文件名、分类、标签实时过滤
+- **上传文档**：拖拽或选择 Markdown 文件，可指定分类与多个标签（逗号分隔）
+- **删除文档**：删除会清空对应 hash 的全部向量数据，操作前二次确认
+- **响应式布局**：桌面端用表格，移动端（< 768px）自动切换为卡片视图
+
+![RAG 知识库管理 - 移动端](../assets/image-20260604154518185.png)
+
+### 5. 通用聊天室能力
 
 - **打字机效果**：每条 AI 回复对应一个气泡，文本碎片持续追加
 - **中途停止**：AI 思考中可点击「停止」按钮主动中断
@@ -202,6 +219,22 @@ Content-Type: text/event-stream
 ```
 
 后端实现：`SseEmitter`，流式返回。
+
+### 3. RAG 知识库管理
+
+| 方法     | 路径                          | 用途                                          |
+| -------- | ----------------------------- | --------------------------------------------- |
+| `POST`   | `/api/rag/upload`             | 上传文件并生成向量（`multipart/form-data`）    |
+| `GET`    | `/api/rag/files`              | 查询所有已上传的源文件列表                    |
+| `DELETE` | `/api/rag/files/{fileHash}`   | 删除指定文件（按 MD5 哈希）及其全部向量数据   |
+| `GET`    | `/api/rag/supported-types`    | 查询当前支持的文档格式（后端可扩展）          |
+| `GET`    | `/api/rag/ask-Rag?message=xx` | 基于知识库回答问题（SSE 流式）                |
+
+上传参数：
+
+- `file`（必填）：待上传文件
+- `category`（可选）：分类
+- `tags`（可选，可多个）：标签列表
 
 ### 响应格式（SSE 规范）
 
